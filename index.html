@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice Manager</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #111;
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 24px auto;
+      padding: 0 16px 40px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 28px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field.full {
+      grid-column: span 4;
+    }
+    label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    input, select, textarea, button {
+      font: inherit;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #fff;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #666;
+    }
+    button.danger {
+      background: #a52a2a;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid #d0d0d0;
+      padding: 8px;
+      vertical-align: middle;
+      text-align: left;
+    }
+    th {
+      background: #f0f0f0;
+      font-size: 12px;
+    }
+    .line-actions {
+      display: flex;
+      justify-content: center;
+    }
+    .totals {
+      width: 360px;
+      margin-left: auto;
+      margin-top: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .totals-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #ddd;
+      background: #fff;
+    }
+    .totals-row:last-child {
+      border-bottom: none;
+      font-weight: 700;
+      background: #f8f8f8;
+    }
+    .muted {
+      color: #666;
+      font-size: 13px;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .status.ok { color: #0a7a28; }
+    .status.err { color: #b42318; }
+    .small-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .field.full { grid-column: span 2; }
+      .totals { width: 100%; }
+    }
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: span 1; }
+      .card { padding: 14px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Invoice Manager</h1>
+      <div class="muted">Trial-run version for creating and saving invoices.</div>
+    </div>
+
+    <div class="card">
+      <h2>Invoice Header</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="invoiceNo">Invoice No</label>
+          <input id="invoiceNo" type="text" placeholder="INV20260527" />
+        </div>
+        <div class="field">
+          <label for="invoiceDate">Date</label>
+          <input id="invoiceDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="customerSelect">Customer</label>
+          <select id="customerSelect">
+            <option value="">Loading customers...</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="contactPerson">Contact Person</label>
+          <input id="contactPerson" type="text" />
+        </div>
+
+        <div class="field full">
+          <label for="customerAddress">Address</label>
+          <textarea id="customerAddress"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="paymentTerm">Payment Term</label>
+          <input id="paymentTerm" type="text" />
+        </div>
+        <div class="field">
+          <label for="remarks">Remarks</label>
+          <input id="remarks" type="text" />
+        </div>
+        <div class="field">
+          <label for="discountAmount">Discount Amount</label>
+          <input id="discountAmount" type="number" step="0.01" value="0" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Invoice Lines</h2>
+      <div class="actions">
+        <button type="button" id="addLineBtn">Add Line</button>
+      </div>
+
+      <table id="linesTable" style="margin-top: 14px;">
+        <thead>
+          <tr>
+            <th style="width: 16%;">Product</th>
+            <th>SKU</th>
+            <th>EAN</th>
+            <th>Description</th>
+            <th>Currency</th>
+            <th>INV Price</th>
+            <th>Qty (Pcs)</th>
+            <th>pcs/CTN</th>
+            <th>Qty (CTN)</th>
+            <th>Total</th>
+            <th style="width: 70px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="linesBody"></tbody>
+      </table>
+
+      <div class="totals">
+        <div class="totals-row"><span>Sub Total</span><span id="subTotalText">0.00</span></div>
+        <div class="totals-row"><span>Discount Amount</span><span id="discountText">0.00</span></div>
+        <div class="totals-row"><span>Total Amount</span><span id="totalText">0.00</span></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="saveInvoiceBtn">Save Invoice</button>
+      </div>
+      <div id="statusMsg" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "PASTE_YOUR_SUPABASE_URL_HERE";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE";
+
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const customerSelect = document.getElementById("customerSelect");
+    const contactPerson = document.getElementById("contactPerson");
+    const customerAddress = document.getElementById("customerAddress");
+    const paymentTerm = document.getElementById("paymentTerm");
+    const remarks = document.getElementById("remarks");
+    const invoiceNo = document.getElementById("invoiceNo");
+    const invoiceDate = document.getElementById("invoiceDate");
+    const discountAmount = document.getElementById("discountAmount");
+    const linesBody = document.getElementById("linesBody");
+    const subTotalText = document.getElementById("subTotalText");
+    const discountText = document.getElementById("discountText");
+    const totalText = document.getElementById("totalText");
+    const statusMsg = document.getElementById("statusMsg");
+
+    let customers = [];
+    let products = [];
+
+    invoiceDate.value = new Date().toISOString().slice(0, 10);
+    invoiceNo.value = "INV" + new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+    async function loadCustomers() {
+      const { data, error } = await db
+        .from("customers")
+        .select("*")
+        .order("customer", { ascending: true });
+
+      if (error) throw error;
+      customers = data || [];
+
+      customerSelect.innerHTML = '<option value="">Select customer</option>';
+      customers.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = `${c.customer_code || ""} ${c.customer}`.trim();
+        customerSelect.appendChild(opt);
+      });
+    }
+
+    async function loadProducts() {
+      const { data, error } = await db
+        .from("products")
+        .select("*")
+        .order("description", { ascending: true });
+
+      if (error) throw error;
+      products = data || [];
+    }
+
+    function handleCustomerChange() {
+      const selected = customers.find(c => String(c.id) === customerSelect.value);
+      if (!selected) return;
+      customerAddress.value = selected.address || "";
+      contactPerson.value = selected.contact_1 || "";
+      paymentTerm.value = selected.payment_term || "";
+    }
+
+    customerSelect.addEventListener("change", handleCustomerChange);
+    discountAmount.addEventListener("input", refreshTotals);
+
+    function addLine(productId = "") {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>
+          <select class="line-product">
+            <option value="">Select product</option>
+            ${products.map(p => `<option value="${p.id}" ${String(p.id) === String(productId) ? "selected" : ""}>${(p.sku || "")} - ${(p.description || "")}</option>`).join("")}
+          </select>
+        </td>
+        <td><input class="line-sku" type="text" readonly></td>
+        <td><input class="line-ean" type="text" readonly></td>
+        <td><input class="line-description" type="text" readonly></td>
+        <td><input class="line-currency" type="text" readonly></td>
+        <td><input class="line-price" type="number" step="0.01"></td>
+        <td><input class="line-qty-pcs" type="number" step="1" value="0"></td>
+        <td><input class="line-pcs-ctn" type="number" step="1" readonly></td>
+        <td><input class="line-qty-ctn" type="number" step="0.01" readonly></td>
+        <td><input class="line-total" type="number" step="0.01" readonly></td>
+        <td class="line-actions"><button type="button" class="danger small-btn remove-line">X</button></td>
+      `;
+
+      linesBody.appendChild(tr);
+
+      const productSelect = tr.querySelector(".line-product");
+      const qtyPcs = tr.querySelector(".line-qty-pcs");
+      const price = tr.querySelector(".line-price");
+      const removeBtn = tr.querySelector(".remove-line");
+
+      productSelect.addEventListener("change", () => fillLineFromProduct(tr));
+      qtyPcs.addEventListener("input", () => recalcLine(tr));
+      price.addEventListener("input", () => recalcLine(tr));
+      removeBtn.addEventListener("click", () => {
+        tr.remove();
+        refreshTotals();
+      });
+
+      if (productId) {
+        fillLineFromProduct(tr);
+      }
+    }
+
+    function fillLineFromProduct(tr) {
+      const productId = tr.querySelector(".line-product").value;
+      const product = products.find(p => String(p.id) === productId);
+
+      const sku = tr.querySelector(".line-sku");
+      const ean = tr.querySelector(".line-ean");
+      const description = tr.querySelector(".line-description");
+      const currency = tr.querySelector(".line-currency");
+      const price = tr.querySelector(".line-price");
+      const pcsCtn = tr.querySelector(".line-pcs-ctn");
+
+      if (!product) {
+        sku.value = "";
+        ean.value = "";
+        description.value = "";
+        currency.value = "";
+        price.value = "";
+        pcsCtn.value = "";
+        recalcLine(tr);
+        return;
+      }
+
+      sku.value = product.sku || "";
+      ean.value = product.ean || "";
+      description.value = product.description || "";
+      currency.value = product.currency || "";
+      price.value = product.inv_price ?? 0;
+      pcsCtn.value = product.pcs_per_ctn ?? 0;
+
+      recalcLine(tr);
+    }
+
+    function recalcLine(tr) {
+      const qtyPcs = parseFloat(tr.querySelector(".line-qty-pcs").value || 0);
+      const pcsCtn = parseFloat(tr.querySelector(".line-pcs-ctn").value || 0);
+      const price = parseFloat(tr.querySelector(".line-price").value || 0);
+
+      const qtyCtn = pcsCtn ? (qtyPcs / pcsCtn) : 0;
+      const total = qtyPcs * price;
+
+      tr.querySelector(".line-qty-ctn").value = qtyCtn ? qtyCtn.toFixed(2) : "0.00";
+      tr.querySelector(".line-total").value = total.toFixed(2);
+
+      refreshTotals();
+    }
+
+    function refreshTotals() {
+      const totals = [...linesBody.querySelectorAll("tr")].map(tr => {
+        return parseFloat(tr.querySelector(".line-total")?.value || 0);
+      });
+
+      const subTotal = totals.reduce((sum, n) => sum + n, 0);
+      const discount = parseFloat(discountAmount.value || 0);
+      const total = subTotal - discount;
+
+      subTotalText.textContent = subTotal.toFixed(2);
+      discountText.textContent = discount.toFixed(2);
+      totalText.textContent = total.toFixed(2);
+    }
+
+    async function saveInvoice() {
+      try {
+        statusMsg.textContent = "";
+        statusMsg.className = "status";
+
+        const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
+
+        if (!invoiceNo.value.trim()) throw new Error("Invoice No is required.");
+        if (!invoiceDate.value) throw new Error("Invoice date is required.");
+        if (!selectedCustomer) throw new Error("Please select a customer.");
+
+        const rows = [...linesBody.querySelectorAll("tr")].map(tr => ({
+          sku: tr.querySelector(".line-sku").value,
+          ean: tr.querySelector(".line-ean").value,
+          description: tr.querySelector(".line-description").value,
+          currency: tr.querySelector(".line-currency").value,
+          inv_price: parseFloat(tr.querySelector(".line-price").value || 0),
+          qty_pcs: parseFloat(tr.querySelector(".line-qty-pcs").value || 0),
+          pcs_per_ctn: parseFloat(tr.querySelector(".line-pcs-ctn").value || 0),
+          qty_ctn: parseFloat(tr.querySelector(".line-qty-ctn").value || 0),
+          line_total: parseFloat(tr.querySelector(".line-total").value || 0)
+        })).filter(r => r.sku);
+
+        if (!rows.length) throw new Error("Please add at least one product line.");
+
+        const subTotal = parseFloat(subTotalText.textContent || 0);
+        const discount = parseFloat(discountAmount.value || 0);
+        const total = parseFloat(totalText.textContent || 0);
+
+        const { data: invoiceData, error: invoiceError } = await db
+          .from("invoices")
+          .insert({
+            invoice_no: invoiceNo.value.trim(),
+            invoice_date: invoiceDate.value,
+            customer_name: selectedCustomer.customer,
+            customer_address: customerAddress.value,
+            contact_person: contactPerson.value,
+            payment_term: paymentTerm.value,
+            remarks: remarks.value,
+            discount_amount: discount,
+            sub_total: subTotal,
+            total_amount: total
+          })
+          .select();
+
+        if (invoiceError) throw invoiceError;
+        const savedInvoice = invoiceData[0];
+        if (!savedInvoice) throw new Error("Invoice save failed.");
+
+        const itemPayload = rows.map(r => ({
+          invoice_id: savedInvoice.id,
+          sku: r.sku,
+          ean: r.ean,
+          description: r.description,
+          currency: r.currency,
+          unit_price: r.inv_price,
+          order_qty_pcs: r.qty_pcs,
+          qty_per_ctn: r.pcs_per_ctn,
+          order_qty_ctn: r.qty_ctn,
+          total_amount: r.line_total
+        }));
+
+        const { error: itemsError } = await db
+          .from("invoice_items")
+          .insert(itemPayload);
+
+        if (itemsError) throw itemsError;
+
+        statusMsg.textContent = `Saved successfully. Invoice ID: ${savedInvoice.id}`;
+        statusMsg.className = "status ok";
+      } catch (err) {
+        statusMsg.textContent = err.message || "Save failed.";
+        statusMsg.className = "status err";
+      }
+    }
+
+    document.getElementById("addLineBtn").addEventListener("click", () => addLine());
+    document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
+
+    async function init() {
+      try {
+        await loadCustomers();
+        await loadProducts();
+        addLine();
+      } catch (err) {
+        statusMsg.textContent = "Init failed: " + (err.message || err);
+        statusMsg.className = "status err";
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
