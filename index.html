@@ -512,18 +512,17 @@
         if (!savedInvoice) throw new Error("Invoice save failed.");
 
         const itemPayload = rows.map(r => ({
-          invoice_id: savedInvoice.id,
-          product_id: r.product_id || null,
-          sku: r.sku,
-          ean: r.ean,
-          description: r.description,
-          currency: r.currency,
-          unit_price: r.inv_price,
-          order_qty_pcs: r.qty_pcs,
-          qty_per_ctn: r.pcs_per_ctn,
-          order_qty_ctn: r.qty_ctn,
-          total_amount: r.line_total
-        }));
+  invoice_id: savedInvoice.id,
+  product_id: r.product_id || null,
+  sku: r.sku,
+  ean: r.ean,
+  description: r.description,
+  unit_price: r.inv_price,
+  order_qty_pcs: r.qty_pcs,
+  qty_per_ctn: r.pcs_per_ctn,
+  order_qty_ctn: r.qty_ctn,
+  total_amount: r.line_total
+}));
 
         const { error: itemsError } = await db
           .from("invoice_items")
