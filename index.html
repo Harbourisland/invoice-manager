@@ -78,8 +78,12 @@
       color: #fff;
       cursor: pointer;
     }
-    button.secondary { background: #666; }
-    button.danger { background: #a52a2a; }
+    button.secondary {
+      background: #666;
+    }
+    button.danger {
+      background: #a52a2a;
+    }
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -140,33 +144,16 @@
       padding: 6px 10px;
       font-size: 12px;
     }
-    .auth-box {
-      display: grid;
-      grid-template-columns: 1fr 1fr auto auto;
-      gap: 12px;
-      align-items: end;
-    }
-    .auth-user {
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: #fafafa;
-      min-height: 41px;
-      display: flex;
-      align-items: center;
-    }
     @media (max-width: 960px) {
       .grid { grid-template-columns: 1fr 1fr; }
       .field.full { grid-column: span 2; }
       .totals { width: 100%; }
-      .auth-box { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 640px) {
       .grid { grid-template-columns: 1fr; }
       .field.full { grid-column: span 1; }
       .card { padding: 14px; }
       table { display: block; overflow-x: auto; }
-      .auth-box { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -175,25 +162,6 @@
     <div class="card">
       <h1>Invoice Manager</h1>
       <div class="muted">Trial-run version for creating and saving invoices.</div>
-    </div>
-
-    <div class="card">
-      <h2>Access</h2>
-      <div class="auth-box">
-        <div class="field">
-          <label for="loginEmail">Email</label>
-          <input id="loginEmail" name="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" />
-        </div>
-        <div class="field">
-          <label for="loginPassword">Password</label>
-          <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" placeholder="Password" />
-        </div>
-        <button type="button" id="signInBtn">Sign In</button>
-        <button type="button" id="signOutBtn" class="secondary">Sign Out</button>
-      </div>
-      <div class="actions">
-        <div id="authUserText" class="auth-user muted">Checking session...</div>
-      </div>
     </div>
 
     <div class="card">
@@ -281,19 +249,7 @@
     const SUPABASE_ANON_KEY = "PASTE_YOUR_REAL_ANON_KEY_HERE";
 
     const { createClient } = supabase;
-    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      }
-    });
-
-    const loginEmail = document.getElementById("loginEmail");
-    const loginPassword = document.getElementById("loginPassword");
-    const signInBtn = document.getElementById("signInBtn");
-    const signOutBtn = document.getElementById("signOutBtn");
-    const authUserText = document.getElementById("authUserText");
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const customerSelect = document.getElementById("customerSelect");
     const contactPerson = document.getElementById("contactPerson");
@@ -308,7 +264,6 @@
     const discountText = document.getElementById("discountText");
     const totalText = document.getElementById("totalText");
     const statusMsg = document.getElementById("statusMsg");
-    const addLineBtn = document.getElementById("addLineBtn");
     const saveInvoiceBtn = document.getElementById("saveInvoiceBtn");
 
     let customers = [];
@@ -331,63 +286,6 @@
         .replace(/'/g, "&#039;");
     }
 
-    async function getCurrentSession() {
-      const { data, error } = await db.auth.getSession();
-      if (error) throw error;
-      return data.session;
-    }
-
-    async function updateAuthUI() {
-      const session = await getCurrentSession();
-      if (session?.user) {
-        authUserText.textContent = "Signed in as: " + (session.user.email || session.user.id);
-      } else {
-        authUserText.textContent = "Not signed in. If your tables use authenticated-only RLS, sign in first.";
-      }
-    }
-
-    async function signIn() {
-      try {
-        setStatus("", "");
-        const email = loginEmail.value.trim();
-        const password = loginPassword.value;
-
-        if (!email) throw new Error("Email is required.");
-        if (!password) throw new Error("Password is required.");
-
-        signInBtn.disabled = true;
-
-        const { error } = await db.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-
-        await updateAuthUI();
-        await loadMasterData();
-        setStatus("Signed in successfully.", "ok");
-      } catch (err) {
-        setStatus(err.message || "Sign in failed.", "err");
-      } finally {
-        signInBtn.disabled = false;
-      }
-    }
-
-    async function signOut() {
-      try {
-        setStatus("", "");
-        const { error } = await db.auth.signOut();
-        if (error) throw error;
-
-        customers = [];
-        products = [];
-        customerSelect.innerHTML = '<option value="">Sign in to load customers</option>';
-        linesBody.innerHTML = "";
-        addLine();
-        await updateAuthUI();
-        setStatus("Signed out.", "ok");
-      } catch (err) {
-        setStatus(err.message || "Sign out failed.", "err");
-      }
-    }
-
     async function loadCustomers() {
       const { data, error } = await db
         .from("customers")
@@ -398,7 +296,6 @@
       customers = data || [];
 
       customerSelect.innerHTML = '<option value="">Select customer</option>';
-
       customers.forEach(c => {
         const opt = document.createElement("option");
         opt.value = c.id;
@@ -417,33 +314,6 @@
       products = data || [];
     }
 
-    async function loadMasterData() {
-      const session = await getCurrentSession();
-
-      if (!session) {
-        customers = [];
-        products = [];
-        customerSelect.innerHTML = '<option value="">Sign in to load customers</option>';
-        linesBody.innerHTML = "";
-        addLine();
-        setStatus("No active session detected. Sign in to load products and customers.", "err");
-        return;
-      }
-
-      await loadCustomers();
-      await loadProducts();
-
-      if (!customers.length) {
-        setStatus("Signed in, but no customer rows were returned. Check customers SELECT policy or table data.", "err");
-      } else if (!products.length) {
-        setStatus("Signed in, but no product rows were returned. Check products SELECT policy or table data.", "err");
-      } else {
-        setStatus("Products and customers loaded.", "ok");
-      }
-
-      rerenderProductDropdowns();
-    }
-
     function handleCustomerChange() {
       const selected = customers.find(c => String(c.id) === customerSelect.value);
       if (!selected) {
@@ -452,6 +322,7 @@
         paymentTerm.value = "";
         return;
       }
+
       customerAddress.value = selected.address || "";
       contactPerson.value = selected.contact_1 || "";
       paymentTerm.value = selected.payment_term || "";
@@ -462,14 +333,12 @@
 
     function buildProductOptions(selectedId = "") {
       const placeholder = '<option value="">Select product</option>';
-
-      const items = products.map(p => {
+      const options = products.map(p => {
         const selected = String(p.id) === String(selectedId) ? "selected" : "";
         const label = `${p.sku || ""} - ${p.description || ""}`.replace(/^ - | - $/g, "").trim() || `Product ${p.id}`;
         return `<option value="${escapeHtml(p.id)}" ${selected}>${escapeHtml(label)}</option>`;
       }).join("");
-
-      return placeholder + items;
+      return placeholder + options;
     }
 
     function addLine(productId = "") {
@@ -516,14 +385,13 @@
     }
 
     function rerenderProductDropdowns() {
-      const existingRows = [...linesBody.querySelectorAll("tr")];
-
-      if (!existingRows.length) {
+      const rows = [...linesBody.querySelectorAll("tr")];
+      if (!rows.length) {
         addLine();
         return;
       }
 
-      existingRows.forEach(tr => {
+      rows.forEach(tr => {
         const select = tr.querySelector(".line-product");
         const currentValue = select?.value || "";
         if (select) {
@@ -595,9 +463,6 @@
     async function saveInvoice() {
       try {
         setStatus("", "");
-
-        const session = await getCurrentSession();
-        if (!session) throw new Error("Please sign in before saving.");
 
         const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
 
@@ -675,20 +540,34 @@
       }
     }
 
-    signInBtn.addEventListener("click", signIn);
-    signOutBtn.addEventListener("click", signOut);
     document.getElementById("addLineBtn").addEventListener("click", () => addLine());
     document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
 
-    db.auth.onAuthStateChange(async () => {
-      await updateAuthUI();
-      await loadMasterData();
-    });
-
     async function init() {
       try {
-        await updateAuthUI();
-        await loadMasterData();
+        setStatus("Loading customers and products...", "");
+        await loadCustomers();
+        await loadProducts();
+        rerenderProductDropdowns();
+
+        if (!customers.length && !products.length) {
+          setStatus(
+            "No customers or products were returned from Supabase.\nMost likely cause: RLS SELECT policy does not allow anon/public reads on these tables.",
+            "err"
+          );
+        } else if (!customers.length) {
+          setStatus(
+            "Products loaded, but customers returned no rows.\nCheck SELECT policy or table data for customers.",
+            "err"
+          );
+        } else if (!products.length) {
+          setStatus(
+            "Customers loaded, but products returned no rows.\nCheck SELECT policy or table data for products.",
+            "err"
+          );
+        } else {
+          setStatus("Products and customers loaded.", "ok");
+        }
       } catch (err) {
         setStatus("Init failed: " + (err.message || err), "err");
         if (!linesBody.querySelector("tr")) addLine();
