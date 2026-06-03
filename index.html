@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Invoice Manager</title>
- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -78,11 +78,11 @@
       color: #fff;
       cursor: pointer;
     }
-    button.secondary {
-      background: #666;
-    }
-    button.danger {
-      background: #a52a2a;
+    button.secondary { background: #666; }
+    button.danger { background: #a52a2a; }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     table {
       width: 100%;
@@ -132,6 +132,7 @@
       margin-top: 10px;
       font-size: 13px;
       font-weight: 700;
+      white-space: pre-line;
     }
     .status.ok { color: #0a7a28; }
     .status.err { color: #b42318; }
@@ -139,16 +140,33 @@
       padding: 6px 10px;
       font-size: 12px;
     }
+    .auth-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .auth-user {
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fafafa;
+      min-height: 41px;
+      display: flex;
+      align-items: center;
+    }
     @media (max-width: 960px) {
       .grid { grid-template-columns: 1fr 1fr; }
       .field.full { grid-column: span 2; }
       .totals { width: 100%; }
+      .auth-box { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 640px) {
       .grid { grid-template-columns: 1fr; }
       .field.full { grid-column: span 1; }
       .card { padding: 14px; }
       table { display: block; overflow-x: auto; }
+      .auth-box { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -160,43 +178,62 @@
     </div>
 
     <div class="card">
+      <h2>Access</h2>
+      <div class="auth-box">
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" name="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" placeholder="Password" />
+        </div>
+        <button type="button" id="signInBtn">Sign In</button>
+        <button type="button" id="signOutBtn" class="secondary">Sign Out</button>
+      </div>
+      <div class="actions">
+        <div id="authUserText" class="auth-user muted">Checking session...</div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Invoice Header</h2>
       <div class="grid">
         <div class="field">
           <label for="invoiceNo">Invoice No</label>
-          <input id="invoiceNo" type="text" placeholder="INV20260527" />
+          <input id="invoiceNo" name="invoiceNo" type="text" placeholder="INV20260527" />
         </div>
         <div class="field">
           <label for="invoiceDate">Date</label>
-          <input id="invoiceDate" type="date" />
+          <input id="invoiceDate" name="invoiceDate" type="date" />
         </div>
         <div class="field">
           <label for="customerSelect">Customer</label>
-          <select id="customerSelect">
+          <select id="customerSelect" name="customerSelect">
             <option value="">Loading customers...</option>
           </select>
         </div>
         <div class="field">
           <label for="contactPerson">Contact Person</label>
-          <input id="contactPerson" type="text" />
+          <input id="contactPerson" name="contactPerson" type="text" />
         </div>
 
         <div class="field full">
           <label for="customerAddress">Address</label>
-          <textarea id="customerAddress"></textarea>
+          <textarea id="customerAddress" name="customerAddress"></textarea>
         </div>
 
         <div class="field">
           <label for="paymentTerm">Payment Term</label>
-          <input id="paymentTerm" type="text" />
+          <input id="paymentTerm" name="paymentTerm" type="text" />
         </div>
         <div class="field">
           <label for="remarks">Remarks</label>
-          <input id="remarks" type="text" />
+          <input id="remarks" name="remarks" type="text" />
         </div>
         <div class="field">
           <label for="discountAmount">Discount Amount</label>
-          <input id="discountAmount" type="number" step="0.01" value="0" />
+          <input id="discountAmount" name="discountAmount" type="number" step="0.01" value="0" />
         </div>
       </div>
     </div>
@@ -210,7 +247,7 @@
       <table id="linesTable" style="margin-top: 14px;">
         <thead>
           <tr>
-            <th style="width: 16%;">Product</th>
+            <th style="width: 22%;">Product</th>
             <th>SKU</th>
             <th>EAN</th>
             <th>Description</th>
@@ -241,10 +278,22 @@
 
   <script>
     const SUPABASE_URL = "https://rgwnthgpzomhwixbiyjp.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnd250aGdwem9taHdpeGJpeWpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzQ1NTQsImV4cCI6MjA5NTM1MDU1NH0.etc-f6jIrlOLJOfpBhWFOcP-HywsS2P40lCZpSxcP-I";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_REAL_ANON_KEY_HERE";
 
     const { createClient } = supabase;
-    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+
+    const loginEmail = document.getElementById("loginEmail");
+    const loginPassword = document.getElementById("loginPassword");
+    const signInBtn = document.getElementById("signInBtn");
+    const signOutBtn = document.getElementById("signOutBtn");
+    const authUserText = document.getElementById("authUserText");
 
     const customerSelect = document.getElementById("customerSelect");
     const contactPerson = document.getElementById("contactPerson");
@@ -259,12 +308,85 @@
     const discountText = document.getElementById("discountText");
     const totalText = document.getElementById("totalText");
     const statusMsg = document.getElementById("statusMsg");
+    const addLineBtn = document.getElementById("addLineBtn");
+    const saveInvoiceBtn = document.getElementById("saveInvoiceBtn");
 
     let customers = [];
     let products = [];
 
     invoiceDate.value = new Date().toISOString().slice(0, 10);
     invoiceNo.value = "INV" + new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+    function setStatus(message = "", type = "") {
+      statusMsg.textContent = message;
+      statusMsg.className = "status" + (type ? " " + type : "");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    async function getCurrentSession() {
+      const { data, error } = await db.auth.getSession();
+      if (error) throw error;
+      return data.session;
+    }
+
+    async function updateAuthUI() {
+      const session = await getCurrentSession();
+      if (session?.user) {
+        authUserText.textContent = "Signed in as: " + (session.user.email || session.user.id);
+      } else {
+        authUserText.textContent = "Not signed in. If your tables use authenticated-only RLS, sign in first.";
+      }
+    }
+
+    async function signIn() {
+      try {
+        setStatus("", "");
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value;
+
+        if (!email) throw new Error("Email is required.");
+        if (!password) throw new Error("Password is required.");
+
+        signInBtn.disabled = true;
+
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        await updateAuthUI();
+        await loadMasterData();
+        setStatus("Signed in successfully.", "ok");
+      } catch (err) {
+        setStatus(err.message || "Sign in failed.", "err");
+      } finally {
+        signInBtn.disabled = false;
+      }
+    }
+
+    async function signOut() {
+      try {
+        setStatus("", "");
+        const { error } = await db.auth.signOut();
+        if (error) throw error;
+
+        customers = [];
+        products = [];
+        customerSelect.innerHTML = '<option value="">Sign in to load customers</option>';
+        linesBody.innerHTML = "";
+        addLine();
+        await updateAuthUI();
+        setStatus("Signed out.", "ok");
+      } catch (err) {
+        setStatus(err.message || "Sign out failed.", "err");
+      }
+    }
 
     async function loadCustomers() {
       const { data, error } = await db
@@ -276,10 +398,11 @@
       customers = data || [];
 
       customerSelect.innerHTML = '<option value="">Select customer</option>';
+
       customers.forEach(c => {
         const opt = document.createElement("option");
         opt.value = c.id;
-        opt.textContent = `${c.customer_code || ""} ${c.customer}`.trim();
+        opt.textContent = `${c.customer_code || ""} ${c.customer || ""}`.trim();
         customerSelect.appendChild(opt);
       });
     }
@@ -294,9 +417,41 @@
       products = data || [];
     }
 
+    async function loadMasterData() {
+      const session = await getCurrentSession();
+
+      if (!session) {
+        customers = [];
+        products = [];
+        customerSelect.innerHTML = '<option value="">Sign in to load customers</option>';
+        linesBody.innerHTML = "";
+        addLine();
+        setStatus("No active session detected. Sign in to load products and customers.", "err");
+        return;
+      }
+
+      await loadCustomers();
+      await loadProducts();
+
+      if (!customers.length) {
+        setStatus("Signed in, but no customer rows were returned. Check customers SELECT policy or table data.", "err");
+      } else if (!products.length) {
+        setStatus("Signed in, but no product rows were returned. Check products SELECT policy or table data.", "err");
+      } else {
+        setStatus("Products and customers loaded.", "ok");
+      }
+
+      rerenderProductDropdowns();
+    }
+
     function handleCustomerChange() {
       const selected = customers.find(c => String(c.id) === customerSelect.value);
-      if (!selected) return;
+      if (!selected) {
+        customerAddress.value = "";
+        contactPerson.value = "";
+        paymentTerm.value = "";
+        return;
+      }
       customerAddress.value = selected.address || "";
       contactPerson.value = selected.contact_1 || "";
       paymentTerm.value = selected.payment_term || "";
@@ -305,25 +460,36 @@
     customerSelect.addEventListener("change", handleCustomerChange);
     discountAmount.addEventListener("input", refreshTotals);
 
+    function buildProductOptions(selectedId = "") {
+      const placeholder = '<option value="">Select product</option>';
+
+      const items = products.map(p => {
+        const selected = String(p.id) === String(selectedId) ? "selected" : "";
+        const label = `${p.sku || ""} - ${p.description || ""}`.replace(/^ - | - $/g, "").trim() || `Product ${p.id}`;
+        return `<option value="${escapeHtml(p.id)}" ${selected}>${escapeHtml(label)}</option>`;
+      }).join("");
+
+      return placeholder + items;
+    }
+
     function addLine(productId = "") {
       const tr = document.createElement("tr");
 
       tr.innerHTML = `
         <td>
-          <select class="line-product">
-            <option value="">Select product</option>
-            ${products.map(p => `<option value="${p.id}" ${String(p.id) === String(productId) ? "selected" : ""}>${(p.sku || "")} - ${(p.description || "")}</option>`).join("")}
+          <select class="line-product" name="lineProduct">
+            ${buildProductOptions(productId)}
           </select>
         </td>
-        <td><input class="line-sku" type="text" readonly></td>
-        <td><input class="line-ean" type="text" readonly></td>
-        <td><input class="line-description" type="text" readonly></td>
-        <td><input class="line-currency" type="text" readonly></td>
-        <td><input class="line-price" type="number" step="0.01"></td>
-        <td><input class="line-qty-pcs" type="number" step="1" value="0"></td>
-        <td><input class="line-pcs-ctn" type="number" step="1" readonly></td>
-        <td><input class="line-qty-ctn" type="number" step="0.01" readonly></td>
-        <td><input class="line-total" type="number" step="0.01" readonly></td>
+        <td><input class="line-sku" name="lineSku" type="text" readonly></td>
+        <td><input class="line-ean" name="lineEan" type="text" readonly></td>
+        <td><input class="line-description" name="lineDescription" type="text" readonly></td>
+        <td><input class="line-currency" name="lineCurrency" type="text" readonly></td>
+        <td><input class="line-price" name="linePrice" type="number" step="0.01"></td>
+        <td><input class="line-qty-pcs" name="lineQtyPcs" type="number" step="1" value="0"></td>
+        <td><input class="line-pcs-ctn" name="linePcsCtn" type="number" step="1" readonly></td>
+        <td><input class="line-qty-ctn" name="lineQtyCtn" type="number" step="0.01" readonly></td>
+        <td><input class="line-total" name="lineTotal" type="number" step="0.01" readonly></td>
         <td class="line-actions"><button type="button" class="danger small-btn remove-line">X</button></td>
       `;
 
@@ -344,12 +510,31 @@
 
       if (productId) {
         fillLineFromProduct(tr);
+      } else {
+        recalcLine(tr);
       }
+    }
+
+    function rerenderProductDropdowns() {
+      const existingRows = [...linesBody.querySelectorAll("tr")];
+
+      if (!existingRows.length) {
+        addLine();
+        return;
+      }
+
+      existingRows.forEach(tr => {
+        const select = tr.querySelector(".line-product");
+        const currentValue = select?.value || "";
+        if (select) {
+          select.innerHTML = buildProductOptions(currentValue);
+        }
+      });
     }
 
     function fillLineFromProduct(tr) {
       const productId = tr.querySelector(".line-product").value;
-      const product = products.find(p => String(p.id) === productId);
+      const product = products.find(p => String(p.id) === String(productId));
 
       const sku = tr.querySelector(".line-sku");
       const ean = tr.querySelector(".line-ean");
@@ -387,7 +572,7 @@
       const qtyCtn = pcsCtn ? (qtyPcs / pcsCtn) : 0;
       const total = qtyPcs * price;
 
-      tr.querySelector(".line-qty-ctn").value = qtyCtn ? qtyCtn.toFixed(2) : "0.00";
+      tr.querySelector(".line-qty-ctn").value = qtyCtn.toFixed(2);
       tr.querySelector(".line-total").value = total.toFixed(2);
 
       refreshTotals();
@@ -409,8 +594,10 @@
 
     async function saveInvoice() {
       try {
-        statusMsg.textContent = "";
-        statusMsg.className = "status";
+        setStatus("", "");
+
+        const session = await getCurrentSession();
+        if (!session) throw new Error("Please sign in before saving.");
 
         const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
 
@@ -419,6 +606,7 @@
         if (!selectedCustomer) throw new Error("Please select a customer.");
 
         const rows = [...linesBody.querySelectorAll("tr")].map(tr => ({
+          product_id: tr.querySelector(".line-product").value,
           sku: tr.querySelector(".line-sku").value,
           ean: tr.querySelector(".line-ean").value,
           description: tr.querySelector(".line-description").value,
@@ -435,6 +623,8 @@
         const subTotal = parseFloat(subTotalText.textContent || 0);
         const discount = parseFloat(discountAmount.value || 0);
         const total = parseFloat(totalText.textContent || 0);
+
+        saveInvoiceBtn.disabled = true;
 
         const { data: invoiceData, error: invoiceError } = await db
           .from("invoices")
@@ -453,11 +643,13 @@
           .select();
 
         if (invoiceError) throw invoiceError;
-        const savedInvoice = invoiceData[0];
+
+        const savedInvoice = invoiceData?.[0];
         if (!savedInvoice) throw new Error("Invoice save failed.");
 
         const itemPayload = rows.map(r => ({
           invoice_id: savedInvoice.id,
+          product_id: r.product_id || null,
           sku: r.sku,
           ean: r.ean,
           description: r.description,
@@ -475,25 +667,31 @@
 
         if (itemsError) throw itemsError;
 
-        statusMsg.textContent = `Saved successfully. Invoice ID: ${savedInvoice.id}`;
-        statusMsg.className = "status ok";
+        setStatus(`Saved successfully. Invoice ID: ${savedInvoice.id}`, "ok");
       } catch (err) {
-        statusMsg.textContent = err.message || "Save failed.";
-        statusMsg.className = "status err";
+        setStatus(err.message || "Save failed.", "err");
+      } finally {
+        saveInvoiceBtn.disabled = false;
       }
     }
 
+    signInBtn.addEventListener("click", signIn);
+    signOutBtn.addEventListener("click", signOut);
     document.getElementById("addLineBtn").addEventListener("click", () => addLine());
     document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
 
+    db.auth.onAuthStateChange(async () => {
+      await updateAuthUI();
+      await loadMasterData();
+    });
+
     async function init() {
       try {
-        await loadCustomers();
-        await loadProducts();
-        addLine();
+        await updateAuthUI();
+        await loadMasterData();
       } catch (err) {
-        statusMsg.textContent = "Init failed: " + (err.message || err);
-        statusMsg.className = "status err";
+        setStatus("Init failed: " + (err.message || err), "err");
+        if (!linesBody.querySelector("tr")) addLine();
       }
     }
 
