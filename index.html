@@ -33,6 +33,26 @@
       margin: 0 0 12px;
       font-size: 18px;
     }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .auth-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .auth-tab {
+      background: #ddd;
+      color: #111;
+    }
+    .auth-tab.active {
+      background: #111;
+      color: #fff;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -144,6 +164,24 @@
       padding: 6px 10px;
       font-size: 12px;
     }
+    .hidden {
+      display: none !important;
+    }
+    .user-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      background: #fafafa;
+      font-size: 13px;
+    }
+    .loading-box {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
     @media (max-width: 960px) {
       .grid { grid-template-columns: 1fr 1fr; }
       .field.full { grid-column: span 2; }
@@ -159,88 +197,132 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>Invoice Manager</h1>
-      <div class="muted">Trial-run version for creating and saving invoices.</div>
+    <div id="loadingView" class="card">
+      <div class="loading-box">Checking session...</div>
     </div>
 
-    <div class="card">
-      <h2>Invoice Header</h2>
-      <div class="grid">
-        <div class="field">
-          <label for="invoiceNo">Invoice No</label>
-          <input id="invoiceNo" name="invoiceNo" type="text" placeholder="INV20260527" />
-        </div>
-        <div class="field">
-          <label for="invoiceDate">Date</label>
-          <input id="invoiceDate" name="invoiceDate" type="date" />
-        </div>
-        <div class="field">
-          <label for="customerSelect">Customer</label>
-          <select id="customerSelect" name="customerSelect">
-            <option value="">Loading customers...</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="contactPerson">Contact Person</label>
-          <input id="contactPerson" name="contactPerson" type="text" />
+    <div id="authView" class="hidden">
+      <div class="card">
+        <h1>Invoice Manager</h1>
+        <div class="muted">Sign in or create an account to continue.</div>
+      </div>
+
+      <div class="card" style="max-width: 520px;">
+        <div class="auth-tabs">
+          <button type="button" id="showSignInBtn" class="auth-tab active">Sign In</button>
+          <button type="button" id="showSignUpBtn" class="auth-tab">Sign Up</button>
         </div>
 
-        <div class="field full">
-          <label for="customerAddress">Address</label>
-          <textarea id="customerAddress" name="customerAddress"></textarea>
+        <div class="grid" style="grid-template-columns: 1fr;">
+          <div class="field">
+            <label for="authEmail">Email</label>
+            <input id="authEmail" type="email" placeholder="you@example.com" />
+          </div>
+          <div class="field">
+            <label for="authPassword">Password</label>
+            <input id="authPassword" type="password" placeholder="Enter password" />
+          </div>
         </div>
 
-        <div class="field">
-          <label for="paymentTerm">Payment Term</label>
-          <input id="paymentTerm" name="paymentTerm" type="text" />
+        <div class="actions">
+          <button type="button" id="authSubmitBtn">Sign In</button>
         </div>
-        <div class="field">
-          <label for="remarks">Remarks</label>
-          <input id="remarks" name="remarks" type="text" />
-        </div>
-        <div class="field">
-          <label for="discountAmount">Discount Amount</label>
-          <input id="discountAmount" name="discountAmount" type="number" step="0.01" value="0" />
-        </div>
+        <div id="authStatus" class="status"></div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Invoice Lines</h2>
-      <div class="actions">
-        <button type="button" id="addLineBtn">Add Line</button>
+    <div id="appView" class="hidden">
+      <div class="card">
+        <div class="topbar">
+          <div>
+            <h1 style="margin-bottom: 6px;">Invoice Manager</h1>
+            <div class="muted">Authenticated invoice creation app.</div>
+          </div>
+          <div class="actions" style="margin-top: 0;">
+            <div id="userBadge" class="user-badge"></div>
+            <button type="button" id="signOutBtn" class="secondary">Sign Out</button>
+          </div>
+        </div>
       </div>
 
-      <table id="linesTable" style="margin-top: 14px;">
-        <thead>
-          <tr>
-            <th style="width: 22%;">Product</th>
-            <th>SKU</th>
-            <th>EAN</th>
-            <th>Description</th>
-            <th>Currency</th>
-            <th>INV Price</th>
-            <th>Qty (Pcs)</th>
-            <th>pcs/CTN</th>
-            <th>Qty (CTN)</th>
-            <th>Total</th>
-            <th style="width: 70px;">Action</th>
-          </tr>
-        </thead>
-        <tbody id="linesBody"></tbody>
-      </table>
+      <div class="card">
+        <h2>Invoice Header</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="invoiceNo">Invoice No</label>
+            <input id="invoiceNo" name="invoiceNo" type="text" placeholder="INV20260527" />
+          </div>
+          <div class="field">
+            <label for="invoiceDate">Date</label>
+            <input id="invoiceDate" name="invoiceDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="customerSelect">Customer</label>
+            <select id="customerSelect" name="customerSelect">
+              <option value="">Loading customers...</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="contactPerson">Contact Person</label>
+            <input id="contactPerson" name="contactPerson" type="text" />
+          </div>
 
-      <div class="totals">
-        <div class="totals-row"><span>Sub Total</span><span id="subTotalText">0.00</span></div>
-        <div class="totals-row"><span>Discount Amount</span><span id="discountText">0.00</span></div>
-        <div class="totals-row"><span>Total Amount</span><span id="totalText">0.00</span></div>
+          <div class="field full">
+            <label for="customerAddress">Address</label>
+            <textarea id="customerAddress" name="customerAddress"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="paymentTerm">Payment Term</label>
+            <input id="paymentTerm" name="paymentTerm" type="text" />
+          </div>
+          <div class="field">
+            <label for="remarks">Remarks</label>
+            <input id="remarks" name="remarks" type="text" />
+          </div>
+          <div class="field">
+            <label for="discountAmount">Discount Amount</label>
+            <input id="discountAmount" name="discountAmount" type="number" step="0.01" value="0" />
+          </div>
+        </div>
       </div>
 
-      <div class="actions">
-        <button type="button" id="saveInvoiceBtn">Save Invoice</button>
+      <div class="card">
+        <h2>Invoice Lines</h2>
+        <div class="actions">
+          <button type="button" id="addLineBtn">Add Line</button>
+        </div>
+
+        <table id="linesTable" style="margin-top: 14px;">
+          <thead>
+            <tr>
+              <th style="width: 22%;">Product</th>
+              <th>SKU</th>
+              <th>EAN</th>
+              <th>Description</th>
+              <th>Currency</th>
+              <th>INV Price</th>
+              <th>Qty (Pcs)</th>
+              <th>pcs/CTN</th>
+              <th>Qty (CTN)</th>
+              <th>Total</th>
+              <th style="width: 70px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="linesBody"></tbody>
+        </table>
+
+        <div class="totals">
+          <div class="totals-row"><span>Sub Total</span><span id="subTotalText">0.00</span></div>
+          <div class="totals-row"><span>Discount Amount</span><span id="discountText">0.00</span></div>
+          <div class="totals-row"><span>Total Amount</span><span id="totalText">0.00</span></div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="saveInvoiceBtn">Save Invoice</button>
+        </div>
+        <div id="statusMsg" class="status"></div>
       </div>
-      <div id="statusMsg" class="status"></div>
     </div>
   </div>
 
@@ -250,6 +332,19 @@
 
     const { createClient } = supabase;
     const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const loadingView = document.getElementById("loadingView");
+    const authView = document.getElementById("authView");
+    const appView = document.getElementById("appView");
+
+    const showSignInBtn = document.getElementById("showSignInBtn");
+    const showSignUpBtn = document.getElementById("showSignUpBtn");
+    const authSubmitBtn = document.getElementById("authSubmitBtn");
+    const authEmail = document.getElementById("authEmail");
+    const authPassword = document.getElementById("authPassword");
+    const authStatus = document.getElementById("authStatus");
+    const signOutBtn = document.getElementById("signOutBtn");
+    const userBadge = document.getElementById("userBadge");
 
     const customerSelect = document.getElementById("customerSelect");
     const contactPerson = document.getElementById("contactPerson");
@@ -268,8 +363,47 @@
 
     let customers = [];
     let products = [];
+    let currentUser = null;
+    let authMode = "signin";
+    let appInitialized = false;
 
-    invoiceDate.value = new Date().toISOString().slice(0, 10);
+    function setAuthMode(mode) {
+      authMode = mode;
+      const isSignIn = mode === "signin";
+      showSignInBtn.classList.toggle("active", isSignIn);
+      showSignUpBtn.classList.toggle("active", !isSignIn);
+      authSubmitBtn.textContent = isSignIn ? "Sign In" : "Sign Up";
+      setAuthStatus("", "");
+    }
+
+    function setAuthStatus(message = "", type = "") {
+      authStatus.textContent = message;
+      authStatus.className = "status" + (type ? " " + type : "");
+    }
+
+    function setStatus(message = "", type = "") {
+      statusMsg.textContent = message;
+      statusMsg.className = "status" + (type ? " " + type : "");
+    }
+
+    function showView(name) {
+      loadingView.classList.add("hidden");
+      authView.classList.add("hidden");
+      appView.classList.add("hidden");
+
+      if (name === "loading") loadingView.classList.remove("hidden");
+      if (name === "auth") authView.classList.remove("hidden");
+      if (name === "app") appView.classList.remove("hidden");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
 
     function generateInvoiceNo() {
       const now = new Date();
@@ -284,20 +418,19 @@
       return `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
     }
 
-    invoiceNo.value = generateInvoiceNo();
-
-    function setStatus(message = "", type = "") {
-      statusMsg.textContent = message;
-      statusMsg.className = "status" + (type ? " " + type : "");
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    function resetInvoiceForm() {
+      invoiceDate.value = new Date().toISOString().slice(0, 10);
+      invoiceNo.value = generateInvoiceNo();
+      customerSelect.value = "";
+      contactPerson.value = "";
+      customerAddress.value = "";
+      paymentTerm.value = "";
+      remarks.value = "";
+      discountAmount.value = 0;
+      linesBody.innerHTML = "";
+      addLine();
+      refreshTotals();
+      setStatus("", "");
     }
 
     async function loadCustomers() {
@@ -341,9 +474,6 @@
       contactPerson.value = selected.contact_1 || "";
       paymentTerm.value = selected.payment_term || "";
     }
-
-    customerSelect.addEventListener("change", handleCustomerChange);
-    discountAmount.addEventListener("input", refreshTotals);
 
     function buildProductOptions(selectedId = "") {
       const placeholder = '<option value="">Select product</option>';
@@ -478,6 +608,10 @@
       try {
         setStatus("", "");
 
+        const { data: userData } = await db.auth.getUser();
+        const user = userData?.user;
+        if (!user) throw new Error("You are not signed in.");
+
         const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
 
         if (!invoiceNo.value.trim()) throw new Error("Invoice No is required.");
@@ -544,7 +678,7 @@
         if (itemsError) throw itemsError;
 
         setStatus(`Saved successfully. Invoice ID: ${savedInvoice.id}`, "ok");
-        invoiceNo.value = generateInvoiceNo();
+        resetInvoiceForm();
       } catch (err) {
         setStatus(err.message || "Save failed.", "err");
       } finally {
@@ -552,41 +686,119 @@
       }
     }
 
-    document.getElementById("addLineBtn").addEventListener("click", () => addLine());
-    document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
-
-    async function init() {
+    async function handleAuthSubmit() {
       try {
-        setStatus("Loading customers and products...", "");
-        await loadCustomers();
-        await loadProducts();
-        rerenderProductDropdowns();
+        setAuthStatus("", "");
+        const email = authEmail.value.trim();
+        const password = authPassword.value;
 
-        if (!customers.length && !products.length) {
-          setStatus(
-            "No customers or products were returned from Supabase.\nMost likely cause: RLS SELECT policy does not allow anon/public reads on these tables.",
-            "err"
-          );
-        } else if (!customers.length) {
-          setStatus(
-            "Products loaded, but customers returned no rows.\nCheck SELECT policy or table data for customers.",
-            "err"
-          );
-        } else if (!products.length) {
-          setStatus(
-            "Customers loaded, but products returned no rows.\nCheck SELECT policy or table data for products.",
-            "err"
-          );
+        if (!email) throw new Error("Email is required.");
+        if (!password) throw new Error("Password is required.");
+        if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+
+        authSubmitBtn.disabled = true;
+
+        if (authMode === "signup") {
+          const { data, error } = await db.auth.signUp({ email, password });
+          if (error) throw error;
+
+          if (data?.user) {
+            setAuthStatus("Sign up successful. You can now use the app.", "ok");
+          } else {
+            setAuthStatus("Sign up completed. Check auth settings if session was not created.", "ok");
+          }
         } else {
-          setStatus("Products and customers loaded.", "ok");
+          const { error } = await db.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          setAuthStatus("Signed in successfully.", "ok");
         }
       } catch (err) {
-        setStatus("Init failed: " + (err.message || err), "err");
-        if (!linesBody.querySelector("tr")) addLine();
+        setAuthStatus(err.message || "Authentication failed.", "err");
+      } finally {
+        authSubmitBtn.disabled = false;
       }
     }
 
-    init();
+    async function handleSignOut() {
+      try {
+        const { error } = await db.auth.signOut({ scope: "local" });
+        if (error) throw error;
+      } catch (err) {
+        setAuthStatus(err.message || "Sign out failed.", "err");
+      }
+    }
+
+    async function initAppData() {
+      await loadCustomers();
+      await loadProducts();
+      rerenderProductDropdowns();
+
+      if (!customers.length && !products.length) {
+        setStatus(
+          "No customers or products were returned from Supabase.\nMost likely cause: RLS SELECT policy does not allow reads on these tables.",
+          "err"
+        );
+      } else if (!customers.length) {
+        setStatus(
+          "Products loaded, but customers returned no rows.\nCheck SELECT policy or table data for customers.",
+          "err"
+        );
+      } else if (!products.length) {
+        setStatus(
+          "Customers loaded, but products returned no rows.\nCheck SELECT policy or table data for products.",
+          "err"
+        );
+      } else {
+        setStatus("Products and customers loaded.", "ok");
+      }
+    }
+
+    async function applyUserState() {
+      const { data, error } = await db.auth.getUser();
+      if (error) {
+        currentUser = null;
+        userBadge.textContent = "";
+        showView("auth");
+        return;
+      }
+
+      currentUser = data?.user || null;
+
+      if (!currentUser) {
+        userBadge.textContent = "";
+        showView("auth");
+        return;
+      }
+
+      userBadge.textContent = `${currentUser.email || "Signed in"} • ${currentUser.id.slice(0, 8)}`;
+
+      showView("app");
+
+      if (!appInitialized) {
+        await initAppData();
+        resetInvoiceForm();
+        appInitialized = true;
+      }
+    }
+
+    showSignInBtn.addEventListener("click", () => setAuthMode("signin"));
+    showSignUpBtn.addEventListener("click", () => setAuthMode("signup"));
+    authSubmitBtn.addEventListener("click", handleAuthSubmit);
+    signOutBtn.addEventListener("click", handleSignOut);
+    customerSelect.addEventListener("change", handleCustomerChange);
+    discountAmount.addEventListener("input", refreshTotals);
+    document.getElementById("addLineBtn").addEventListener("click", () => addLine());
+    document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
+
+    db.auth.onAuthStateChange(async (event) => {
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
+        await applyUserState();
+      }
+    });
+
+    setAuthMode("signin");
+    showView("loading");
+    applyUserState();
   </script>
 </body>
 </html>
