@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Invoice Manager</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -32,26 +33,6 @@
     h2 {
       margin: 0 0 12px;
       font-size: 18px;
-    }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .auth-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .auth-tab {
-      background: #ddd;
-      color: #111;
-    }
-    .auth-tab.active {
-      background: #111;
-      color: #fff;
     }
     .grid {
       display: grid;
@@ -164,23 +145,100 @@
       padding: 6px 10px;
       font-size: 12px;
     }
-    .hidden {
-      display: none !important;
-    }
-    .user-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 999px;
+    .preview-box {
       background: #fafafa;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+    }
+    .invoice-sheet {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #fff;
+      color: #111;
+      padding: 16mm 14mm;
+      box-shadow: 0 0 0 1px #ddd;
+    }
+    .pdf-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .pdf-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .pdf-company {
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: right;
+    }
+    .pdf-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .pdf-block {
+      border: 1px solid #ccc;
+      padding: 12px;
+      min-height: 110px;
+    }
+    .pdf-block h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+    .pdf-block p {
+      margin: 3px 0;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-line;
+    }
+    .pdf-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+    .pdf-table th, .pdf-table td {
+      border: 1px solid #999;
+      padding: 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .pdf-table th {
+      background: #f2f2f2;
+    }
+    .pdf-totals {
+      width: 320px;
+      margin-left: auto;
+      margin-top: 16px;
+      border: 1px solid #999;
+    }
+    .pdf-totals-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #999;
       font-size: 13px;
     }
-    .loading-box {
-      text-align: center;
-      padding: 40px 20px;
-      color: #666;
+    .pdf-totals-row:last-child {
+      border-bottom: none;
+      font-weight: 700;
+    }
+    .pdf-remarks {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 12px;
+      min-height: 70px;
+      font-size: 13px;
+      white-space: pre-line;
     }
     @media (max-width: 960px) {
       .grid { grid-template-columns: 1fr 1fr; }
@@ -192,136 +250,198 @@
       .field.full { grid-column: span 1; }
       .card { padding: 14px; }
       table { display: block; overflow-x: auto; }
+      .invoice-sheet {
+        width: 100%;
+        min-height: auto;
+        padding: 16px;
+      }
+      .pdf-meta {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media print {
+      body {
+        background: #fff;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .wrap {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+      .card {
+        border: none;
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+      }
+      .preview-box {
+        border: none;
+        padding: 0;
+        background: #fff;
+      }
+      .invoice-sheet {
+        width: 100%;
+        min-height: auto;
+        box-shadow: none;
+        margin: 0;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div id="loadingView" class="card">
-      <div class="loading-box">Checking session...</div>
+    <div class="card no-print">
+      <h1>Invoice Manager</h1>
+      <div class="muted">Simple invoice creation with local PDF download.</div>
     </div>
 
-    <div id="authView" class="hidden">
-      <div class="card">
-        <h1>Invoice Manager</h1>
-        <div class="muted">Sign in or create an account to continue.</div>
-      </div>
-
-      <div class="card" style="max-width: 520px;">
-        <div class="auth-tabs">
-          <button type="button" id="showSignInBtn" class="auth-tab active">Sign In</button>
-          <button type="button" id="showSignUpBtn" class="auth-tab">Sign Up</button>
+    <div class="card no-print">
+      <h2>Invoice Header</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="invoiceNo">Invoice No</label>
+          <input id="invoiceNo" name="invoiceNo" type="text" placeholder="INV20260527" />
+        </div>
+        <div class="field">
+          <label for="invoiceDate">Date</label>
+          <input id="invoiceDate" name="invoiceDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="customerSelect">Customer</label>
+          <select id="customerSelect" name="customerSelect">
+            <option value="">Loading customers...</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="contactPerson">Contact Person</label>
+          <input id="contactPerson" name="contactPerson" type="text" />
         </div>
 
-        <div class="grid" style="grid-template-columns: 1fr;">
-          <div class="field">
-            <label for="authEmail">Email</label>
-            <input id="authEmail" type="email" placeholder="you@example.com" />
-          </div>
-          <div class="field">
-            <label for="authPassword">Password</label>
-            <input id="authPassword" type="password" placeholder="Enter password" />
-          </div>
+        <div class="field full">
+          <label for="customerAddress">Address</label>
+          <textarea id="customerAddress" name="customerAddress"></textarea>
         </div>
 
-        <div class="actions">
-          <button type="button" id="authSubmitBtn">Sign In</button>
+        <div class="field">
+          <label for="paymentTerm">Payment Term</label>
+          <input id="paymentTerm" name="paymentTerm" type="text" />
         </div>
-        <div id="authStatus" class="status"></div>
+        <div class="field full">
+          <label for="remarks">Remarks</label>
+          <textarea id="remarks" name="remarks"></textarea>
+        </div>
+        <div class="field">
+          <label for="discountAmount">Discount Amount</label>
+          <input id="discountAmount" name="discountAmount" type="number" step="0.01" value="0" />
+        </div>
       </div>
     </div>
 
-    <div id="appView" class="hidden">
-      <div class="card">
-        <div class="topbar">
-          <div>
-            <h1 style="margin-bottom: 6px;">Invoice Manager</h1>
-            <div class="muted">Authenticated invoice creation app.</div>
-          </div>
-          <div class="actions" style="margin-top: 0;">
-            <div id="userBadge" class="user-badge"></div>
-            <button type="button" id="signOutBtn" class="secondary">Sign Out</button>
-          </div>
-        </div>
+    <div class="card no-print">
+      <h2>Invoice Lines</h2>
+      <div class="actions">
+        <button type="button" id="addLineBtn">Add Line</button>
       </div>
 
-      <div class="card">
-        <h2>Invoice Header</h2>
-        <div class="grid">
-          <div class="field">
-            <label for="invoiceNo">Invoice No</label>
-            <input id="invoiceNo" name="invoiceNo" type="text" placeholder="INV20260527" />
-          </div>
-          <div class="field">
-            <label for="invoiceDate">Date</label>
-            <input id="invoiceDate" name="invoiceDate" type="date" />
-          </div>
-          <div class="field">
-            <label for="customerSelect">Customer</label>
-            <select id="customerSelect" name="customerSelect">
-              <option value="">Loading customers...</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="contactPerson">Contact Person</label>
-            <input id="contactPerson" name="contactPerson" type="text" />
-          </div>
+      <table id="linesTable" style="margin-top: 14px;">
+        <thead>
+          <tr>
+            <th style="width: 22%;">Product</th>
+            <th>SKU</th>
+            <th>EAN</th>
+            <th>Description</th>
+            <th>Currency</th>
+            <th>INV Price</th>
+            <th>Qty (Pcs)</th>
+            <th>pcs/CTN</th>
+            <th>Qty (CTN)</th>
+            <th>Total</th>
+            <th style="width: 70px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="linesBody"></tbody>
+      </table>
 
-          <div class="field full">
-            <label for="customerAddress">Address</label>
-            <textarea id="customerAddress" name="customerAddress"></textarea>
-          </div>
-
-          <div class="field">
-            <label for="paymentTerm">Payment Term</label>
-            <input id="paymentTerm" name="paymentTerm" type="text" />
-          </div>
-          <div class="field">
-            <label for="remarks">Remarks</label>
-            <input id="remarks" name="remarks" type="text" />
-          </div>
-          <div class="field">
-            <label for="discountAmount">Discount Amount</label>
-            <input id="discountAmount" name="discountAmount" type="number" step="0.01" value="0" />
-          </div>
-        </div>
+      <div class="totals">
+        <div class="totals-row"><span>Sub Total</span><span id="subTotalText">0.00</span></div>
+        <div class="totals-row"><span>Discount Amount</span><span id="discountText">0.00</span></div>
+        <div class="totals-row"><span>Total Amount</span><span id="totalText">0.00</span></div>
       </div>
 
-      <div class="card">
-        <h2>Invoice Lines</h2>
-        <div class="actions">
-          <button type="button" id="addLineBtn">Add Line</button>
-        </div>
+      <div class="actions">
+        <button type="button" id="saveInvoiceBtn">Save Invoice</button>
+        <button type="button" id="downloadPdfBtn" class="secondary">Download PDF</button>
+        <button type="button" id="printBtn" class="secondary">Print / Save as PDF</button>
+      </div>
+      <div id="statusMsg" class="status"></div>
+    </div>
 
-        <table id="linesTable" style="margin-top: 14px;">
-          <thead>
-            <tr>
-              <th style="width: 22%;">Product</th>
-              <th>SKU</th>
-              <th>EAN</th>
-              <th>Description</th>
-              <th>Currency</th>
-              <th>INV Price</th>
-              <th>Qty (Pcs)</th>
-              <th>pcs/CTN</th>
-              <th>Qty (CTN)</th>
-              <th>Total</th>
-              <th style="width: 70px;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="linesBody"></tbody>
-        </table>
+    <div class="card">
+      <h2>Invoice Preview</h2>
+      <div class="preview-box">
+        <div id="invoicePreview" class="invoice-sheet">
+          <div class="pdf-head">
+            <div>
+              <div class="pdf-title">INVOICE</div>
+              <div style="font-size:13px; margin-top:8px;">
+                Invoice No: <strong id="pdfInvoiceNo">-</strong><br>
+                Date: <strong id="pdfInvoiceDate">-</strong>
+              </div>
+            </div>
+            <div class="pdf-company">
+              <strong>HARBOUR ISLAND</strong><br>
+              Company Information<br>
+              Bank Information<br>
+              Hong Kong
+            </div>
+          </div>
 
-        <div class="totals">
-          <div class="totals-row"><span>Sub Total</span><span id="subTotalText">0.00</span></div>
-          <div class="totals-row"><span>Discount Amount</span><span id="discountText">0.00</span></div>
-          <div class="totals-row"><span>Total Amount</span><span id="totalText">0.00</span></div>
-        </div>
+          <div class="pdf-meta">
+            <div class="pdf-block">
+              <h3>Bill To</h3>
+              <p id="pdfCustomerName">-</p>
+              <p id="pdfCustomerAddress">-</p>
+            </div>
+            <div class="pdf-block">
+              <h3>Details</h3>
+              <p>Contact Person: <span id="pdfContactPerson">-</span></p>
+              <p>Payment Term: <span id="pdfPaymentTerm">-</span></p>
+            </div>
+          </div>
 
-        <div class="actions">
-          <button type="button" id="saveInvoiceBtn">Save Invoice</button>
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>EAN</th>
+                <th>Description</th>
+                <th>Currency</th>
+                <th>Unit Price</th>
+                <th>Qty (Pcs)</th>
+                <th>pcs/CTN</th>
+                <th>Qty (CTN)</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody id="pdfLinesBody">
+              <tr><td colspan="9">No items</td></tr>
+            </tbody>
+          </table>
+
+          <div class="pdf-totals">
+            <div class="pdf-totals-row"><span>Sub Total</span><span id="pdfSubTotal">0.00</span></div>
+            <div class="pdf-totals-row"><span>Discount Amount</span><span id="pdfDiscount">0.00</span></div>
+            <div class="pdf-totals-row"><span>Total Amount</span><span id="pdfTotal">0.00</span></div>
+          </div>
+
+          <div class="pdf-remarks">
+            <strong>Remarks:</strong><br>
+            <span id="pdfRemarks">-</span>
+          </div>
         </div>
-        <div id="statusMsg" class="status"></div>
       </div>
     </div>
   </div>
@@ -332,19 +452,6 @@
 
     const { createClient } = supabase;
     const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const loadingView = document.getElementById("loadingView");
-    const authView = document.getElementById("authView");
-    const appView = document.getElementById("appView");
-
-    const showSignInBtn = document.getElementById("showSignInBtn");
-    const showSignUpBtn = document.getElementById("showSignUpBtn");
-    const authSubmitBtn = document.getElementById("authSubmitBtn");
-    const authEmail = document.getElementById("authEmail");
-    const authPassword = document.getElementById("authPassword");
-    const authStatus = document.getElementById("authStatus");
-    const signOutBtn = document.getElementById("signOutBtn");
-    const userBadge = document.getElementById("userBadge");
 
     const customerSelect = document.getElementById("customerSelect");
     const contactPerson = document.getElementById("contactPerson");
@@ -360,40 +467,15 @@
     const totalText = document.getElementById("totalText");
     const statusMsg = document.getElementById("statusMsg");
     const saveInvoiceBtn = document.getElementById("saveInvoiceBtn");
+    const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+    const printBtn = document.getElementById("printBtn");
 
     let customers = [];
     let products = [];
-    let currentUser = null;
-    let authMode = "signin";
-    let appInitialized = false;
-
-    function setAuthMode(mode) {
-      authMode = mode;
-      const isSignIn = mode === "signin";
-      showSignInBtn.classList.toggle("active", isSignIn);
-      showSignUpBtn.classList.toggle("active", !isSignIn);
-      authSubmitBtn.textContent = isSignIn ? "Sign In" : "Sign Up";
-      setAuthStatus("", "");
-    }
-
-    function setAuthStatus(message = "", type = "") {
-      authStatus.textContent = message;
-      authStatus.className = "status" + (type ? " " + type : "");
-    }
 
     function setStatus(message = "", type = "") {
       statusMsg.textContent = message;
       statusMsg.className = "status" + (type ? " " + type : "");
-    }
-
-    function showView(name) {
-      loadingView.classList.add("hidden");
-      authView.classList.add("hidden");
-      appView.classList.add("hidden");
-
-      if (name === "loading") loadingView.classList.remove("hidden");
-      if (name === "auth") authView.classList.remove("hidden");
-      if (name === "app") appView.classList.remove("hidden");
     }
 
     function escapeHtml(value) {
@@ -413,9 +495,12 @@
       const hh = String(now.getHours()).padStart(2, "0");
       const mm = String(now.getMinutes()).padStart(2, "0");
       const ss = String(now.getSeconds()).padStart(2, "0");
-      const ms = String(now.getMilliseconds()).padStart(3, "0");
-      const rand = String(Math.floor(Math.random() * 900) + 100);
-      return `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
+      return `INV${y}${m}${d}${hh}${mm}${ss}`;
+    }
+
+    function safeText(value, fallback = "-") {
+      const v = String(value ?? "").trim();
+      return v || fallback;
     }
 
     function resetInvoiceForm() {
@@ -430,6 +515,7 @@
       linesBody.innerHTML = "";
       addLine();
       refreshTotals();
+      updatePreview();
       setStatus("", "");
     }
 
@@ -467,12 +553,14 @@
         customerAddress.value = "";
         contactPerson.value = "";
         paymentTerm.value = "";
+        updatePreview();
         return;
       }
 
       customerAddress.value = selected.address || "";
       contactPerson.value = selected.contact_1 || "";
       paymentTerm.value = selected.payment_term || "";
+      updatePreview();
     }
 
     function buildProductOptions(selectedId = "") {
@@ -519,6 +607,7 @@
       removeBtn.addEventListener("click", () => {
         tr.remove();
         refreshTotals();
+        updatePreview();
       });
 
       if (productId) {
@@ -526,22 +615,6 @@
       } else {
         recalcLine(tr);
       }
-    }
-
-    function rerenderProductDropdowns() {
-      const rows = [...linesBody.querySelectorAll("tr")];
-      if (!rows.length) {
-        addLine();
-        return;
-      }
-
-      rows.forEach(tr => {
-        const select = tr.querySelector(".line-product");
-        const currentValue = select?.value || "";
-        if (select) {
-          select.innerHTML = buildProductOptions(currentValue);
-        }
-      });
     }
 
     function fillLineFromProduct(tr) {
@@ -588,6 +661,7 @@
       tr.querySelector(".line-total").value = total.toFixed(2);
 
       refreshTotals();
+      updatePreview();
     }
 
     function refreshTotals() {
@@ -604,13 +678,57 @@
       totalText.textContent = total.toFixed(2);
     }
 
+    function updatePreview() {
+      const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
+
+      document.getElementById("pdfInvoiceNo").textContent = safeText(invoiceNo.value);
+      document.getElementById("pdfInvoiceDate").textContent = safeText(invoiceDate.value);
+      document.getElementById("pdfCustomerName").textContent = safeText(selectedCustomer?.customer || "");
+      document.getElementById("pdfCustomerAddress").textContent = safeText(customerAddress.value);
+      document.getElementById("pdfContactPerson").textContent = safeText(contactPerson.value);
+      document.getElementById("pdfPaymentTerm").textContent = safeText(paymentTerm.value);
+      document.getElementById("pdfSubTotal").textContent = safeText(subTotalText.textContent, "0.00");
+      document.getElementById("pdfDiscount").textContent = safeText(discountText.textContent, "0.00");
+      document.getElementById("pdfTotal").textContent = safeText(totalText.textContent, "0.00");
+      document.getElementById("pdfRemarks").textContent = safeText(remarks.value);
+
+      const pdfLinesBody = document.getElementById("pdfLinesBody");
+      const rows = [...linesBody.querySelectorAll("tr")].map(tr => ({
+        sku: tr.querySelector(".line-sku").value,
+        ean: tr.querySelector(".line-ean").value,
+        description: tr.querySelector(".line-description").value,
+        currency: tr.querySelector(".line-currency").value,
+        unit_price: tr.querySelector(".line-price").value,
+        qty_pcs: tr.querySelector(".line-qty-pcs").value,
+        qty_per_ctn: tr.querySelector(".line-pcs-ctn").value,
+        qty_ctn: tr.querySelector(".line-qty-ctn").value,
+        amount: tr.querySelector(".line-total").value,
+        product_id: tr.querySelector(".line-product").value
+      })).filter(r => r.product_id);
+
+      if (!rows.length) {
+        pdfLinesBody.innerHTML = '<tr><td colspan="9">No items</td></tr>';
+        return;
+      }
+
+      pdfLinesBody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${escapeHtml(r.sku)}</td>
+          <td>${escapeHtml(r.ean)}</td>
+          <td>${escapeHtml(r.description)}</td>
+          <td>${escapeHtml(r.currency)}</td>
+          <td>${escapeHtml(r.unit_price)}</td>
+          <td>${escapeHtml(r.qty_pcs)}</td>
+          <td>${escapeHtml(r.qty_per_ctn)}</td>
+          <td>${escapeHtml(r.qty_ctn)}</td>
+          <td>${escapeHtml(r.amount)}</td>
+        </tr>
+      `).join("");
+    }
+
     async function saveInvoice() {
       try {
         setStatus("", "");
-
-        const { data: userData } = await db.auth.getUser();
-        const user = userData?.user;
-        if (!user) throw new Error("You are not signed in.");
 
         const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
 
@@ -620,10 +738,8 @@
 
         const rows = [...linesBody.querySelectorAll("tr")].map(tr => ({
           product_id: tr.querySelector(".line-product").value,
-          sku: tr.querySelector(".line-sku").value,
           ean: tr.querySelector(".line-ean").value,
           description: tr.querySelector(".line-description").value,
-          currency: tr.querySelector(".line-currency").value,
           inv_price: parseFloat(tr.querySelector(".line-price").value || 0),
           qty_pcs: parseFloat(tr.querySelector(".line-qty-pcs").value || 0),
           pcs_per_ctn: parseFloat(tr.querySelector(".line-pcs-ctn").value || 0),
@@ -678,7 +794,6 @@
         if (itemsError) throw itemsError;
 
         setStatus(`Saved successfully. Invoice ID: ${savedInvoice.id}`, "ok");
-        resetInvoiceForm();
       } catch (err) {
         setStatus(err.message || "Save failed.", "err");
       } finally {
@@ -686,119 +801,80 @@
       }
     }
 
-    async function handleAuthSubmit() {
+    async function downloadPdf() {
       try {
-        setAuthStatus("", "");
-        const email = authEmail.value.trim();
-        const password = authPassword.value;
+        updatePreview();
 
-        if (!email) throw new Error("Email is required.");
-        if (!password) throw new Error("Password is required.");
-        if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+        const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
+        const customerName = safeText(selectedCustomer?.customer || "Customer", "Customer")
+          .replace(/[\\/:*?"<>|]/g, "")
+          .replace(/\s+/g, "-");
+        const invNo = safeText(invoiceNo.value, "INV");
+        const filename = `${customerName}-${invNo}.pdf`;
 
-        authSubmitBtn.disabled = true;
+        downloadPdfBtn.disabled = true;
+        setStatus("Generating PDF...", "");
 
-        if (authMode === "signup") {
-          const { data, error } = await db.auth.signUp({ email, password });
-          if (error) throw error;
+        const element = document.getElementById("invoicePreview");
+        const opt = {
+          margin: 8,
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
 
-          if (data?.user) {
-            setAuthStatus("Sign up successful. You can now use the app.", "ok");
-          } else {
-            setAuthStatus("Sign up completed. Check auth settings if session was not created.", "ok");
-          }
+        await html2pdf().set(opt).from(element).save();
+        setStatus(`PDF downloaded: ${filename}`, "ok");
+      } catch (err) {
+        setStatus(err.message || "PDF generation failed.", "err");
+      } finally {
+        downloadPdfBtn.disabled = false;
+      }
+    }
+
+    async function initApp() {
+      try {
+        await loadCustomers();
+        await loadProducts();
+        resetInvoiceForm();
+
+        if (!customers.length && !products.length) {
+          setStatus("No customers or products were returned from Supabase.", "err");
+        } else if (!customers.length) {
+          setStatus("Products loaded, but customers returned no rows.", "err");
+        } else if (!products.length) {
+          setStatus("Customers loaded, but products returned no rows.", "err");
         } else {
-          const { error } = await db.auth.signInWithPassword({ email, password });
-          if (error) throw error;
-          setAuthStatus("Signed in successfully.", "ok");
+          setStatus("Products and customers loaded.", "ok");
         }
       } catch (err) {
-        setAuthStatus(err.message || "Authentication failed.", "err");
-      } finally {
-        authSubmitBtn.disabled = false;
+        setStatus(err.message || "Failed to initialize app.", "err");
       }
     }
 
-    async function handleSignOut() {
-      try {
-        const { error } = await db.auth.signOut({ scope: "local" });
-        if (error) throw error;
-      } catch (err) {
-        setAuthStatus(err.message || "Sign out failed.", "err");
-      }
-    }
-
-    async function initAppData() {
-      await loadCustomers();
-      await loadProducts();
-      rerenderProductDropdowns();
-
-      if (!customers.length && !products.length) {
-        setStatus(
-          "No customers or products were returned from Supabase.\nMost likely cause: RLS SELECT policy does not allow reads on these tables.",
-          "err"
-        );
-      } else if (!customers.length) {
-        setStatus(
-          "Products loaded, but customers returned no rows.\nCheck SELECT policy or table data for customers.",
-          "err"
-        );
-      } else if (!products.length) {
-        setStatus(
-          "Customers loaded, but products returned no rows.\nCheck SELECT policy or table data for products.",
-          "err"
-        );
-      } else {
-        setStatus("Products and customers loaded.", "ok");
-      }
-    }
-
-    async function applyUserState() {
-      const { data, error } = await db.auth.getUser();
-      if (error) {
-        currentUser = null;
-        userBadge.textContent = "";
-        showView("auth");
-        return;
-      }
-
-      currentUser = data?.user || null;
-
-      if (!currentUser) {
-        userBadge.textContent = "";
-        showView("auth");
-        return;
-      }
-
-      userBadge.textContent = `${currentUser.email || "Signed in"} • ${currentUser.id.slice(0, 8)}`;
-
-      showView("app");
-
-      if (!appInitialized) {
-        await initAppData();
-        resetInvoiceForm();
-        appInitialized = true;
-      }
-    }
-
-    showSignInBtn.addEventListener("click", () => setAuthMode("signin"));
-    showSignUpBtn.addEventListener("click", () => setAuthMode("signup"));
-    authSubmitBtn.addEventListener("click", handleAuthSubmit);
-    signOutBtn.addEventListener("click", handleSignOut);
     customerSelect.addEventListener("change", handleCustomerChange);
-    discountAmount.addEventListener("input", refreshTotals);
-    document.getElementById("addLineBtn").addEventListener("click", () => addLine());
-    document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
-
-    db.auth.onAuthStateChange(async (event) => {
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
-        await applyUserState();
-      }
+    contactPerson.addEventListener("input", updatePreview);
+    customerAddress.addEventListener("input", updatePreview);
+    paymentTerm.addEventListener("input", updatePreview);
+    remarks.addEventListener("input", updatePreview);
+    invoiceNo.addEventListener("input", updatePreview);
+    invoiceDate.addEventListener("input", updatePreview);
+    discountAmount.addEventListener("input", () => {
+      refreshTotals();
+      updatePreview();
     });
 
-    setAuthMode("signin");
-    showView("loading");
-    applyUserState();
+    document.getElementById("addLineBtn").addEventListener("click", () => addLine());
+    document.getElementById("saveInvoiceBtn").addEventListener("click", saveInvoice);
+    document.getElementById("downloadPdfBtn").addEventListener("click", downloadPdf);
+    document.getElementById("printBtn").addEventListener("click", () => {
+      updatePreview();
+      window.print();
+    });
+
+    initApp();
   </script>
 </body>
 </html>
