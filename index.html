@@ -269,16 +269,19 @@
     let customers = [];
     let products = [];
 
-    invoiceDate.value = new Date().toISOString().slice(0, 10);
-    const now = new Date();
+   invoiceDate.value = new Date().toISOString().slice(0, 10);
+
+const now = new Date();
 const y = now.getFullYear();
 const m = String(now.getMonth() + 1).padStart(2, "0");
 const d = String(now.getDate()).padStart(2, "0");
 const hh = String(now.getHours()).padStart(2, "0");
 const mm = String(now.getMinutes()).padStart(2, "0");
 const ss = String(now.getSeconds()).padStart(2, "0");
+const ms = String(now.getMilliseconds()).padStart(3, "0");
+const rand = String(Math.floor(Math.random() * 900) + 100);
 
-invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}`;
+invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
 
     function setStatus(message = "", type = "") {
       statusMsg.textContent = message;
@@ -500,19 +503,19 @@ invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}`;
         saveInvoiceBtn.disabled = true;
 
         const { data: invoiceData, error: invoiceError } = await db
-          .from("invoices")
-          .insert({
-            invoice_no: invoiceNo.value.trim(),
-            invoice_date: invoiceDate.value,
-            customer_name: selectedCustomer.customer,
-            contact_person: contactPerson.value,
-            payment_term: paymentTerm.value,
-            remarks: remarks.value,
-            discount_amount: discount,
-            sub_total: subTotal,
-            total_amount: total
-          })
-          .select();
+  .from("invoices")
+  .insert({
+    invoice_no: invoiceNo.value.trim(),
+    invoice_date: invoiceDate.value,
+    customer_name: selectedCustomer.customer,
+    contact_person: contactPerson.value,
+    payment_term: paymentTerm.value,
+    remarks: remarks.value,
+    discount_amount: discount,
+    subtotal: subTotal,
+    total_amount: total
+  })
+  .select();
 
         if (invoiceError) throw invoiceError;
 
