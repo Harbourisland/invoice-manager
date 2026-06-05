@@ -269,19 +269,22 @@
     let customers = [];
     let products = [];
 
-   invoiceDate.value = new Date().toISOString().slice(0, 10);
+    invoiceDate.value = new Date().toISOString().slice(0, 10);
 
-const now = new Date();
-const y = now.getFullYear();
-const m = String(now.getMonth() + 1).padStart(2, "0");
-const d = String(now.getDate()).padStart(2, "0");
-const hh = String(now.getHours()).padStart(2, "0");
-const mm = String(now.getMinutes()).padStart(2, "0");
-const ss = String(now.getSeconds()).padStart(2, "0");
-const ms = String(now.getMilliseconds()).padStart(3, "0");
-const rand = String(Math.floor(Math.random() * 900) + 100);
+    function generateInvoiceNo() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      const ms = String(now.getMilliseconds()).padStart(3, "0");
+      const rand = String(Math.floor(Math.random() * 900) + 100);
+      return `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
+    }
 
-invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
+    invoiceNo.value = generateInvoiceNo();
 
     function setStatus(message = "", type = "") {
       statusMsg.textContent = message;
@@ -492,7 +495,7 @@ invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
           pcs_per_ctn: parseFloat(tr.querySelector(".line-pcs-ctn").value || 0),
           qty_ctn: parseFloat(tr.querySelector(".line-qty-ctn").value || 0),
           line_total: parseFloat(tr.querySelector(".line-total").value || 0)
-        })).filter(r => r.sku);
+        })).filter(r => r.product_id);
 
         if (!rows.length) throw new Error("Please add at least one product line.");
 
@@ -503,19 +506,19 @@ invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
         saveInvoiceBtn.disabled = true;
 
         const { data: invoiceData, error: invoiceError } = await db
-  .from("invoices")
-  .insert({
-    invoice_no: invoiceNo.value.trim(),
-    invoice_date: invoiceDate.value,
-    customer_name: selectedCustomer.customer,
-    contact_person: contactPerson.value,
-    payment_term: paymentTerm.value,
-    remarks: remarks.value,
-    discount_amount: discount,
-    subtotal: subTotal,
-    total_amount: total
-  })
-  .select();
+          .from("invoices")
+          .insert({
+            invoice_no: invoiceNo.value.trim(),
+            invoice_date: invoiceDate.value,
+            customer_name: selectedCustomer.customer,
+            contact_person: contactPerson.value || null,
+            payment_term: paymentTerm.value || null,
+            remarks: remarks.value || null,
+            discount_amount: discount,
+            subtotal: subTotal,
+            total_amount: total
+          })
+          .select();
 
         if (invoiceError) throw invoiceError;
 
@@ -523,17 +526,16 @@ invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
         if (!savedInvoice) throw new Error("Invoice save failed.");
 
         const itemPayload = rows.map(r => ({
-  invoice_id: savedInvoice.id,
-  product_id: r.product_id || null,
-  sku: r.sku,
-  ean: r.ean,
-  description: r.description,
-  unit_price: r.inv_price,
-  order_qty_pcs: r.qty_pcs,
-  qty_per_ctn: r.pcs_per_ctn,
-  order_qty_ctn: r.qty_ctn,
-  total_amount: r.line_total
-}));
+          invoice_id: savedInvoice.id,
+          product_id: r.product_id ? Number(r.product_id) : null,
+          ean: r.ean || null,
+          description: r.description || null,
+          unit_price: Number(r.inv_price || 0),
+          order_qty_pcs: Number(r.qty_pcs || 0),
+          qty_per_ctn: Number(r.pcs_per_ctn || 0),
+          order_qty_ctn: Number(r.qty_ctn || 0),
+          amount: Number(r.line_total || 0)
+        }));
 
         const { error: itemsError } = await db
           .from("invoice_items")
@@ -542,6 +544,7 @@ invoiceNo.value = `INV${y}${m}${d}${hh}${mm}${ss}${ms}${rand}`;
         if (itemsError) throw itemsError;
 
         setStatus(`Saved successfully. Invoice ID: ${savedInvoice.id}`, "ok");
+        invoiceNo.value = generateInvoiceNo();
       } catch (err) {
         setStatus(err.message || "Save failed.", "err");
       } finally {
