@@ -182,16 +182,26 @@
       overflow-x: auto;
     }
 
-    .page {
-      width: 794px;
-      min-height: 1123px;
-      margin: 0 auto;
-      background: #fff;
-      padding: 96px 34px 34px;
-      position: relative;
-      color: #111;
-      box-shadow: 0 0 0 1px #ddd;
-    }
+.page {
+  width: 794px;
+  min-height: 1123px;
+  margin: 0 auto;
+  background: #fff;
+  padding: 48px 34px 34px;
+  position: relative;
+  color: #111;
+  box-shadow: 0 0 0 1px #ddd;
+}
+
+@media print {
+  .page {
+    width: 794px;
+    min-height: 1123px;
+    box-shadow: none;
+    margin: 0 auto;
+    padding: 34px 34px 34px;
+  }
+}
 
     .company-header {
       text-align: center;
@@ -903,18 +913,18 @@
     }
 
     function refreshTotals() {
-      const totals = [...linesBody.querySelectorAll("tr")].map(tr => {
-        return parseFloat(tr.querySelector(".line-total")?.value || 0);
-      });
+  const totals = [...linesBody.querySelectorAll("tr")].map(tr => {
+    return parseFloat(tr.querySelector(".line-total")?.value || 0);
+  });
 
-      const subTotal = totals.reduce((sum, n) => sum + n, 0);
-      const discount = parseFloat(discountAmount.value || 0);
-      const total = subTotal - discount;
+  const subTotal = totals.reduce((sum, n) => sum + n, 0);
+  const discount = parseFloat(discountAmount.value || 0);
+  const total = subTotal - discount;
 
-      subTotalText.textContent = subTotal.toFixed(2);
-      discountText.textContent = discount.toFixed(2);
-      totalText.textContent = total.toFixed(2);
-    }
+  subTotalText.textContent = subTotal.toFixed(2);
+  discountText.textContent = discount.toFixed(2);
+  totalText.textContent = Math.max(0, total).toFixed(2);
+}
 
     function updatePreview() {
       const selectedCustomer = customers.find(c => String(c.id) === customerSelect.value);
@@ -980,9 +990,9 @@
         `);
       }
 
-      const subTotal = parseFloat(subTotalText.textContent || 0);
-      const discount = parseFloat(discountAmount.value || 0);
-      const total = parseFloat(totalText.textContent || 0);
+     const subTotal = parseFloat(subTotalText.textContent || 0);
+const discount = parseFloat(discountAmount.value || 0);
+const total = Math.max(0, subTotal - discount);
 
       displayRows.push(`
         <tr>
@@ -1031,26 +1041,25 @@
 
         if (!rows.length) throw new Error("Please add at least one product line.");
 
-        const subTotal = parseFloat(subTotalText.textContent || 0);
-        const discount = parseFloat(discountAmount.value || 0);
-        const total = parseFloat(totalText.textContent || 0);
+const subTotal = parseFloat(subTotalText.textContent || 0);
+const discount = parseFloat(discountAmount.value || 0);
+const total = Math.max(0, subTotal - discount);
 
         saveInvoiceBtn.disabled = true;
 
-        const { data: invoiceData, error: invoiceError } = await db
-          .from("invoices")
-          .insert({
-            invoice_no: invoiceNo.value.trim(),
-            invoice_date: invoiceDate.value,
-            customer_name: selectedCustomer.customer,
-            contact_person: contactPerson.value || null,
-            payment_term: paymentTerm.value || null,
-            remarks: remarks.value || null,
-            discount_amount: discount,
-            subtotal: subTotal,
-            total_amount: total
-          })
-          .select();
+const { data: invoiceData, error: invoiceError } = await db
+  .from("invoices")
+  .insert({
+    invoice_no: invoiceNo.value.trim(),
+    invoice_date: invoiceDate.value,
+    customer_name: selectedCustomer.customer,
+    contact_person: contactPerson.value || null,
+    remarks: remarks.value || null,
+    discount_amount: discount,
+    subtotal: subTotal,
+    total_amount: total
+  })
+  .select();
 
         if (invoiceError) throw invoiceError;
 
